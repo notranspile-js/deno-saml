@@ -15,11 +15,11 @@
  */
 
 export type XmlNode =
-   | string
-   | boolean
-   | number
-   | XmlNode[]
-   | { [property: string]: XmlNode};
+  | string
+  | boolean
+  | number
+  | XmlNode[]
+  | { [property: string]: XmlNode };
 export type XmlObject = Record<string, XmlNode>;
 
 export type AuthnRequestOptions = {
@@ -59,4 +59,12 @@ export type IdPMetadataOptions = {
   entityId: string;
   certificateX509Pem: string;
   httpPostBindingUrl: string;
-}
+};
+
+export type PostBindingPageOptions = {
+  postUrl: string;
+  messageType: string;
+  samlMessage: string;
+  relayState: string;
+  submitOnLoad: boolean;
+};

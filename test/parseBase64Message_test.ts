@@ -16,12 +16,12 @@
 
 import { base64 } from "../src/deps.ts";
 import { XmlObject } from "../src/types.ts";
-import parseSamlMessage from "../src/parseSamlMessage.ts";
+import parseBase64Message from "../src/parseBase64Message.ts";
 import { assert, assertEquals } from "./test_deps.ts";
 
-Deno.test("parseSamlMessage", () => {
+Deno.test("parseBase64Message", () => {
   const msg = base64.encode('<foo bar="42">baz</foo>');
-  const obj = parseSamlMessage(msg);
+  const obj = parseBase64Message(msg);
   assert(obj);
   const foo = obj.foo as XmlObject;
   assertEquals((foo._attributes as XmlObject).bar, "42");

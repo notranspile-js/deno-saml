@@ -14,17 +14,22 @@
  * limitations under the License.
  */
 
-import serializeSamlMessage from "../src/serializeSamlMessage.ts";
-import { assertEquals } from "./test_deps.ts";
+// stdlib
 
-Deno.test("serializeSamlMessage", () => {
-  const msg = serializeSamlMessage({
-    foo: {
-      _attributes: {
-        bar: 42
-      },
-      _text: "baz"
-    }
-  });
-  assertEquals(msg, "PGZvbyBiYXI9IjQyIj5iYXo8L2Zvbz4=");
-});
+// @ts-ignore extension
+export * as io from "https://deno.land/std@0.110.0/io/mod.ts";
+
+// @ts-ignore extension
+export * as path from "https://deno.land/std@0.110.0/path/mod.ts";
+
+// simple_server
+// @ts-ignore extension
+export {
+  SimpleRequest,
+  SimpleServer,
+} from "https://deno.land/x/simple_server@1.1.0/mod.ts";
+export type { SimpleResponse } from "https://deno.land/x/simple_server@1.1.0/mod.ts";
+
+// saml
+// @ts-ignore extension
+export * as saml from "../src/mod.ts";

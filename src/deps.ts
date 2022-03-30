@@ -31,6 +31,9 @@ export { dayjs };
 // @ts-ignore extension
 export { js2xml } from "https://deno.land/x/js2xml@1.0.4/mod.ts";
 
+// @ts-ignore extension
+export * as mustache from "https://deno.land/x/mustache_ts@v0.4.1.1/mustache.ts";
+
 // xml2js
 // @ts-ignore extension
 export { xml2js } from "https://deno.land/x/xml2js@1.0.0/mod.ts";
