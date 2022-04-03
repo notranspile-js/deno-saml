@@ -35,7 +35,7 @@ export default (options: AuthnRequestOptions): XmlObject => {
           xmlns: "urn:oasis:names:tc:SAML:2.0:assertion",
           Format: "urn:oasis:names:tc:SAML:2.0:nameid-format:entity",
         },
-        _text: options.issuerMetadataUrl,
+        _text: options.issuer,
       },
       "samlp:NameIDPolicy": {
         _attributes: {

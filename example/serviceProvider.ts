@@ -22,6 +22,9 @@ import {
   SimpleServer,
 } from "./deps.ts";
 
+let idpSsoUrl = "http://localhost:8000/sso";
+let spAuthReqIssuer = `id-${crypto.randomUUID()}`;
+
 function handleHello(req: SimpleRequest): SimpleResponse {
   let user = null;
   const cookie = req.headers.get("Cookie");
@@ -37,14 +40,14 @@ function handleHello(req: SimpleRequest): SimpleResponse {
     };
   } else {
     const req = saml.createAuthnRequest({
-      acsUrl: "http://127.0.0.1:8080/acs",
-      destinationUrl: "http://127.0.0.1:8000/sso",
-      issuerMetadataUrl: "http://127.0.0.1:8080/metadata",
+      acsUrl: "http://localhost:8080/acs",
+      destinationUrl: idpSsoUrl,
+      issuer: spAuthReqIssuer,
     });
     const reqMsg = saml.toBase64Message(req);
     const html = saml.renderPostBindingPage({
       messageType: "Request",
-      postUrl: "http://127.0.0.1:8000/sso",
+      postUrl: idpSsoUrl,
       relayState: "foo",
       samlMessage: reqMsg,
       submitOnLoad: false,
@@ -60,8 +63,8 @@ function handleHello(req: SimpleRequest): SimpleResponse {
 
 function handleMetadata(_: SimpleRequest): SimpleResponse {
   const meta = saml.createSPMetadata({
-    acsUrl: "http://127.0.0.1:8080/acs",
-    metadataUrl: "http://127.0.0.1:8080/metadata",
+    acsUrl: "http://localhost:8080/acs",
+    metadataUrl: "http://localhost:8080/metadata",
     validMinutes: 42,
   });
   const xml = saml.toXml(meta);
@@ -77,24 +80,37 @@ async function handleACS(req: SimpleRequest): Promise<SimpleResponse> {
   const form = await req.formData();
   const respBase64 = form.get("SAMLResponse") as string;
   const resp = saml.parseBase64Message(respBase64);
-  const valid = await saml.verifyResponse(resp);
-  if (!valid) {
+  //console.log(JSON.stringify(resp, null, 4));
+  const verified = await saml.verifyResponse(resp, {
+    addSigInfoWhitespaces: idpSsoUrl.includes("amazonaws"),
+  });
+  if (!verified.success) {
     throw new Error("Response verification failure");
   }
-  const assertion = (resp["samlp:Response"] as saml.XmlObject)
-    .Assertion as saml.XmlObject;
-  const attr = (assertion.AttributeStatement as saml.XmlObject)
-    .Attribute as saml.XmlObject;
-  const user = (attr.AttributeValue as saml.XmlObject)
-    ._text as string;
+  const user = verified.subjectNameId;
   const headers = new Headers();
   headers.set("Set-Cookie", `acs-user=${user}`);
-  headers.set("Location", "http://127.0.0.1:8080/hello");
+  headers.set("Location", "http://localhost:8080/hello");
   return {
     status: 302,
     headers: headers,
   };
 }
+
+// main
+// local: deno run -A serviceProvider.ts
+// AWS: deno run -A serviceProvider.ts https://portal.sso.us-east-1.amazonaws.com/saml/assertion/[base64]
+// Azure: deno run -A serviceProvider.ts https://login.microsoftonline.com/[tenant UUID]/saml2 [client UUID]
+
+if (Deno.args.length > 0) {
+  idpSsoUrl = Deno.args[0].trim();
+  if (Deno.args.length > 1) {
+    spAuthReqIssuer = Deno.args[1].trim();
+  }
+}
+console.log(
+  `Using IdP SSO URL: [${idpSsoUrl}], SP auth req issuer: [${spAuthReqIssuer}]`,
+);
 
 const server = new SimpleServer({
   listen: {

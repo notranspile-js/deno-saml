@@ -25,7 +25,7 @@ export type XmlObject = Record<string, XmlNode>;
 export type AuthnRequestOptions = {
   acsUrl: string;
   destinationUrl: string;
-  issuerMetadataUrl: string;
+  issuer: string;
 };
 
 export type ResponseOptions = {
@@ -45,6 +45,16 @@ export type SignOptions = {
   privateKeyAlgoritmName?: string;
   privateKeyHash?: string;
   certificateX509Pem: string;
+};
+
+export type VerifyOptions = {
+  addSigInfoWhitespaces?: boolean;
+};
+
+export type VerifyResult = {
+  success: boolean,
+  subjectNameId?: string,
+  attributes?: Record<string, string>
 };
 
 export type SPMetadataOptions = {

@@ -31,8 +31,8 @@ async function handleMetadata(_: SimpleRequest): Promise<SimpleResponse> {
 
   const meta = saml.createIdPMetadata({
     certificateX509Pem: cert,
-    entityId: "http://127.0.0.1:8000/metadata",
-    httpPostBindingUrl: "http://127.0.0.1:8000/sso",
+    entityId: "http://localhost:8000/metadata",
+    httpPostBindingUrl: "http://localhost:8000/sso",
     id: "id-foo",
     validMinutes: 42,
   });
@@ -58,7 +58,7 @@ async function handleSSO(req: SimpleRequest): Promise<SimpleResponse> {
   const cert = await Deno.readTextFile(certPath);
   const keyPath = path.join(dir, "saml_test_private_key_pkcs8.pem");
   const key = await Deno.readTextFile(keyPath);
-  
+
   const form = await req.formData();
   const relayState = form.get("RelayState") as string ?? "";
   const authnReqMessage = form.get("SAMLRequest") as string;
@@ -67,12 +67,12 @@ async function handleSSO(req: SimpleRequest): Promise<SimpleResponse> {
     ._attributes as saml.XmlObject;
   const resp = saml.createResponse({
     assertionAttributes: {
-      user: "Foo Bar",
+      user: "Saml Test1",
     },
     audience: "foo",
     destinationUrl: reqAttrs.AssertionConsumerServiceURL as string,
-    issuerUrl: "http://127.0.0.1:8000/sso",
-    nameId: "bar",
+    issuerUrl: "http://localhost:8000/sso",
+    nameId: "samltest1",
     notAfterMinutes: 42,
     requestId: reqAttrs.ID as string,
     sessionId: `id-${crypto.randomUUID()}`,
@@ -80,7 +80,7 @@ async function handleSSO(req: SimpleRequest): Promise<SimpleResponse> {
   const respSigned = await saml.signResponse({
     certificateX509Pem: cert,
     privateKeyPkcs8Pem: key,
-    response: resp
+    response: resp,
   });
   const respMessage = saml.toBase64Message(respSigned);
   const html = saml.renderPostBindingPage({
@@ -97,7 +97,6 @@ async function handleSSO(req: SimpleRequest): Promise<SimpleResponse> {
     body: html,
   };
 }
-
 
 // main
 

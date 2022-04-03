@@ -22,7 +22,7 @@ Deno.test("createAuthnRequest", () => {
   const obj = createAuthnRequest({
     acsUrl: "http://127.0.0.1:8080/acs",
     destinationUrl: "http://127.0.0.1:8080/sso",
-    issuerMetadataUrl: "http://127.0.0.1:8080/metadata"
+    issuer: "http://127.0.0.1:8080/metadata"
   });
   const req = obj["samlp:AuthnRequest"] as XmlObject;
   assert(req);

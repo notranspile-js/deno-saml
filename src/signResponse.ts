@@ -85,7 +85,7 @@ function createSigInfo(
   return {
     SignedInfo: {
       _attributes: {
-        "xmlns": "http://www.w3.org/2000/09/xmldsig#",
+        xmlns: "http://www.w3.org/2000/09/xmldsig#",
       },
       CanonicalizationMethod: {
         _attributes: {
@@ -119,7 +119,7 @@ function createSigInfo(
           ],
         },
         DigestMethod: {
-          "_attributes": {
+          _attributes: {
             Algorithm: digestMethod,
           },
         },

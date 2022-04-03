@@ -16,14 +16,18 @@
 
 import { base64, js2xml } from "./deps.ts";
 import { encoder } from "./common.ts";
-import { XmlObject } from "./types.ts";
+import { VerifyOptions, VerifyResult, XmlObject } from "./types.ts";
 import extractSpkiFromX509 from "./extractSpkiFromX509.ts";
 import reorderAttributes from "./reorderAttributes.ts";
 
-function chooseSignAlg(signatureNode: XmlObject): string {
-  const alg =
-    (((signatureNode.SignedInfo as XmlObject).SignatureMethod as XmlObject)
-      ._attributes as XmlObject).Algorithm as string;
+function chooseSignAlg(
+  nm: Record<string, string>,
+  signatureNode: XmlObject,
+): string {
+  const alg = (((signatureNode[`${nm.dsig}SignedInfo`] as XmlObject)[
+    `${nm.dsig}SignatureMethod`
+  ] as XmlObject)
+    ._attributes as XmlObject).Algorithm as string;
   if (
     "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256" == alg ||
     "http://www.w3.org/2000/09/xmldsig#rsa-sha1" == alg
@@ -34,11 +38,14 @@ function chooseSignAlg(signatureNode: XmlObject): string {
   }
 }
 
-function chooseHashAlg(signatureNode: XmlObject): string {
-  const dig =
-    (((((signatureNode.SignedInfo as XmlObject)
-      .Reference as XmlObject) as XmlObject).DigestMethod as XmlObject)
-      ._attributes as XmlObject).Algorithm as string;
+function chooseHashAlg(
+  nm: Record<string, string>,
+  signatureNode: XmlObject,
+): string {
+  const dig = (((((signatureNode[`${nm.dsig}SignedInfo`] as XmlObject)[
+    `${nm.dsig}Reference`
+  ] as XmlObject) as XmlObject)[`${nm.dsig}DigestMethod`] as XmlObject)
+    ._attributes as XmlObject).Algorithm as string;
   if ("http://www.w3.org/2001/04/xmlenc#sha256" == dig) {
     return "SHA-256";
   } else if ("http://www.w3.org/2000/09/xmldsig#sha1" == dig) {
@@ -48,14 +55,111 @@ function chooseHashAlg(signatureNode: XmlObject): string {
   }
 }
 
-export default async (response: XmlObject): Promise<boolean> => {
-  const signatureNode =
-    ((response["samlp:Response"] as XmlObject).Assertion as XmlObject)
-      .Signature as XmlObject;
-  const signAlg = chooseSignAlg(signatureNode);
-  const hashAlg = chooseHashAlg(signatureNode);
-  const certPem = (((signatureNode.KeyInfo as XmlObject).X509Data as XmlObject)
-    .X509Certificate as XmlObject)._text as string;
+function namespacesMap(response: XmlObject): Record<string, string> {
+  const nsSaml = "urn:oasis:names:tc:SAML:2.0:protocol";
+  const nsAssert = "urn:oasis:names:tc:SAML:2.0:assertion";
+  const nsDsig = "http://www.w3.org/2000/09/xmldsig#";
+  let idx = 0;
+  if (response._declaration) {
+    idx = 1;
+  }
+  const respNode = Object.entries(response)[idx][1] as Record<string, unknown>;
+  const respAttrs = respNode._attributes as Record<string, string>;
+  let samlPrefix = "";
+  let assertPrefix = "";
+  let dsigPrefix = "";
+  const nsPrefLen = "xmlns".length + 1;
+  for (const [name, val] of Object.entries(respAttrs)) {
+    if (nsSaml == val) {
+      samlPrefix = `${name.substring(nsPrefLen)}:`;
+    } else if (nsAssert == val) {
+      assertPrefix = `${name.substring(nsPrefLen)}:`;
+    } else if (nsDsig == val) {
+      dsigPrefix = `${name.substring(nsPrefLen)}:`;
+    }
+  }
+  return {
+    saml: samlPrefix,
+    assertns: assertPrefix,
+    dsig: dsigPrefix,
+  };
+}
+
+function addWhitespaces(
+  nm: Record<string, string>,
+  xml: string,
+): string {
+  const ns = nm.dsig;
+  let res = xml;
+  res = res.replace(
+    `<${ns}CanonicalizationMethod`,
+    `\n<${ns}CanonicalizationMethod`,
+  );
+  res = res.replace(`<${ns}SignatureMethod`, `\n<${ns}SignatureMethod`);
+  res = res.replace(`<${ns}Reference`, `\n<${ns}Reference`);
+  res = res.replace(`<${ns}Transforms>`, `\n<${ns}Transforms>`);
+  res = res.replaceAll(
+    `<${ns}Transform Algorithm=`,
+    `\n<${ns}Transform Algorithm=`,
+  );
+  res = res.replace(`</${ns}Transforms>`, `\n</${ns}Transforms>`);
+  res = res.replace(`<${ns}DigestMethod`, `\n<${ns}DigestMethod`);
+  res = res.replace(`<${ns}DigestValue>`, `\n<${ns}DigestValue>`);
+  res = res.replace(`</${ns}Reference>`, `\n</${ns}Reference>`);
+  res = res.replace(`</${ns}SignedInfo>`, `\n</${ns}SignedInfo>`);
+  return res;
+}
+
+function extractNameId(
+  nm: Record<string, string>,
+  response: XmlObject,
+): string {
+  return ((((response[`${nm.saml}Response`] as XmlObject)[
+    `${nm.assertns}Assertion`
+  ] as XmlObject)[`${nm.assertns}Subject`] as XmlObject)[
+    `${nm.assertns}NameID`
+  ] as XmlObject)._text as string;
+}
+
+function extractAttributes(
+  nm: Record<string, string>,
+  response: XmlObject,
+): Record<string, string> {
+  let attrs =
+    (((response[`${nm.saml}Response`] as XmlObject)[
+      `${nm.assertns}Assertion`
+    ] as XmlObject)[`${nm.assertns}AttributeStatement`] as XmlObject)[
+      `${nm.assertns}Attribute`
+    ] as XmlObject[];
+  if (!attrs) {
+    return {};
+  }
+  if (!(attrs instanceof Array)) {
+    attrs = [attrs];
+  }
+  const res = {} as Record<string, string>;
+  for (const at of attrs) {
+    const name = (at._attributes as XmlObject).Name as string;
+    const val = (at[`${nm.assertns}AttributeValue`] as XmlObject)
+      ._text as string;
+    res[name] = val;
+  }
+  return res;
+}
+
+export default async (
+  response: XmlObject,
+  options: VerifyOptions,
+): Promise<VerifyResult> => {
+  const nm = namespacesMap(response);
+  const signatureNode = ((response[`${nm.saml}Response`] as XmlObject)[
+    `${nm.assertns}Assertion`
+  ] as XmlObject)[`${nm.dsig}Signature`] as XmlObject;
+  const signAlg = chooseSignAlg(nm, signatureNode);
+  const hashAlg = chooseHashAlg(nm, signatureNode);
+  const certPem = (((signatureNode[`${nm.dsig}KeyInfo`] as XmlObject)[
+    `${nm.dsig}X509Data`
+  ] as XmlObject)[`${nm.dsig}X509Certificate`] as XmlObject)._text as string;
   const pubKeyPem = extractSpkiFromX509(certPem);
   const pubKeyDer = base64.decode(pubKeyPem);
   const pubKey = await crypto.subtle.importKey(
@@ -70,11 +174,19 @@ export default async (response: XmlObject): Promise<boolean> => {
   );
 
   const resp = JSON.parse(JSON.stringify(response));
-  const assertion = {
-    Assertion: resp["samlp:Response"].Assertion,
-  };
-  delete assertion.Assertion.Signature;
-  reorderAttributes(assertion.Assertion);
+  const assertion = {} as XmlObject;
+  assertion[`${nm.assertns}Assertion`] =
+    resp[`${nm.saml}Response`][`${nm.assertns}Assertion`],
+    delete (assertion[`${nm.assertns}Assertion`] as XmlObject)[
+      `${nm.dsig}Signature`
+    ];
+  if ("" != nm.assertns) {
+    (((assertion[`${nm.assertns}Assertion`] as XmlObject)
+      ._attributes) as XmlObject)[
+        `xmlns:${nm.assertns.substring(0, nm.assertns.length - 1)}`
+      ] = "urn:oasis:names:tc:SAML:2.0:assertion";
+  }
+  reorderAttributes(assertion[`${nm.assertns}Assertion`] as XmlObject);
   const assertionCanonical = js2xml(assertion, {
     compact: true,
     fullTagEmptyElement: true,
@@ -85,32 +197,51 @@ export default async (response: XmlObject): Promise<boolean> => {
     assertionCanonicalBytes.buffer,
   );
   const assertionDigest = base64.encode(sha256Bytes);
-  const sigInfo = signatureNode.SignedInfo as XmlObject;
-  const assertionDigestExpected = ((sigInfo.Reference as XmlObject).DigestValue as XmlObject)
-    ._text as string;
+  const sigInfo = signatureNode[`${nm.dsig}SignedInfo`] as XmlObject;
+  const assertionDigestExpected =
+    ((sigInfo[`${nm.dsig}Reference`] as XmlObject)[
+      `${nm.dsig}DigestValue`
+    ] as XmlObject)
+      ._text as string;
   if (assertionDigest != assertionDigestExpected) {
     throw new Error(
       `Digest comparison failure, expected: [${assertionDigestExpected}], actual: [${assertionDigest}]`,
     );
   }
-  const si = {
-    SignedInfo: sigInfo,
-  };
-  si.SignedInfo._attributes = {
-    xmlns: "http://www.w3.org/2000/09/xmldsig#",
-  } as XmlObject;
+  const si = {} as XmlObject;
+  si[`${nm.dsig}SignedInfo`] = sigInfo;
+  if ("" == nm.dsig) {
+    (si.SignedInfo as XmlObject)._attributes = {
+      xmlns: "http://www.w3.org/2000/09/xmldsig#",
+    } as XmlObject;
+  } else {
+    const sattrs = {} as XmlObject;
+    sattrs[`xmlns:${nm.dsig.substring(0, nm.dsig.length - 1)}`] =
+      "http://www.w3.org/2000/09/xmldsig#";
+    (si[`${nm.dsig}SignedInfo`] as XmlObject)._attributes = sattrs;
+  }
 
-  const siXml = js2xml(si, {
+  let siXml = js2xml(si, {
     compact: true,
     fullTagEmptyElement: true,
   });
+  if (true == options.addSigInfoWhitespaces) {
+    siXml = addWhitespaces(nm, siXml);
+  }
   const siXmlBytes = encoder.encode(siXml);
-  const sigText = (signatureNode.SignatureValue as XmlObject)._text as string;
-  const sigBytes = base64.decode(sigText);
-  return await crypto.subtle.verify(
+  const sigText = (signatureNode[`${nm.dsig}SignatureValue`] as XmlObject)
+    ._text as string;
+  const sigTextFlat = sigText.replaceAll(/\s/g, "");
+  const sigBytes = base64.decode(sigTextFlat);
+  const verified = await crypto.subtle.verify(
     signAlg,
     pubKey,
     sigBytes.buffer,
     siXmlBytes.buffer,
   );
+  return {
+    success: verified,
+    subjectNameId: extractNameId(nm, response),
+    attributes: extractAttributes(nm, response),
+  };
 };
