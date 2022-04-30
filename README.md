@@ -26,7 +26,7 @@ With AWS run:
 deno run -A serviceProvider.ts https://portal.sso.us-east-1.amazonaws.com/saml/assertion/[base64]
 ```
 
-Open [http://localhost:8080/hello] in a browser, you will be redirected to Azure/AWS for auth and your username
+Open [http://localhost:8080/hello](http://localhost:8080/hello) in a browser, you will be redirected to Azure/AWS for auth and your username
 will be displayed on a `hello` page after successfull authentication.
 
 
