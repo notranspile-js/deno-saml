@@ -261,4 +261,6 @@ Deno.test("verifyResponse AWS", async () => {
   });
   assert(verified.success);
   assertEquals(verified.subjectNameId, "Username");
+  assertEquals(verified.period!.from, "2022-04-03T13:35:23+01:00");
+  assertEquals(verified.period!.to, "2022-04-03T14:40:23+01:00");
 });

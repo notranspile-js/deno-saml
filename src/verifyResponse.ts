@@ -14,9 +14,14 @@
  * limitations under the License.
  */
 
-import { base64, js2xml } from "./deps.ts";
-import { encoder } from "./common.ts";
-import { VerifyOptions, VerifyResult, XmlObject } from "./types.ts";
+import { base64, dayjs, js2xml } from "./deps.ts";
+import { dateFormat, encoder } from "./common.ts";
+import {
+  VerifyOptions,
+  VerifyPeriod,
+  VerifyResult,
+  XmlObject,
+} from "./types.ts";
 import extractSpkiFromX509 from "./extractSpkiFromX509.ts";
 import reorderAttributes from "./reorderAttributes.ts";
 
@@ -125,12 +130,11 @@ function extractAttributes(
   nm: Record<string, string>,
   response: XmlObject,
 ): Record<string, string> {
-  let attrs =
-    (((response[`${nm.saml}Response`] as XmlObject)[
-      `${nm.assertns}Assertion`
-    ] as XmlObject)[`${nm.assertns}AttributeStatement`] as XmlObject)[
-      `${nm.assertns}Attribute`
-    ] as XmlObject[];
+  let attrs = (((response[`${nm.saml}Response`] as XmlObject)[
+    `${nm.assertns}Assertion`
+  ] as XmlObject)[`${nm.assertns}AttributeStatement`] as XmlObject)[
+    `${nm.assertns}Attribute`
+  ] as XmlObject[];
   if (!attrs) {
     return {};
   }
@@ -145,6 +149,21 @@ function extractAttributes(
     res[name] = val;
   }
   return res;
+}
+
+function extractPeriod(
+  nm: Record<string, string>,
+  response: XmlObject,
+): VerifyPeriod {
+  const attrs = (((response[`${nm.saml}Response`] as XmlObject)[
+    `${nm.assertns}Assertion`
+  ] as XmlObject)[`${nm.assertns}Conditions`] as XmlObject)
+    ._attributes as Record<string, string>;
+
+  return {
+    from: dayjs(attrs.NotBefore, dateFormat).format(),
+    to: dayjs(attrs.NotOnOrAfter, dateFormat).format()
+  };
 }
 
 export default async (
@@ -242,6 +261,7 @@ export default async (
   return {
     success: verified,
     subjectNameId: extractNameId(nm, response),
+    period: extractPeriod(nm, response),
     attributes: extractAttributes(nm, response),
   };
 };

@@ -51,10 +51,16 @@ export type VerifyOptions = {
   addSigInfoWhitespaces?: boolean;
 };
 
+export type VerifyPeriod = {
+  from: string;
+  to: string;
+};
+
 export type VerifyResult = {
-  success: boolean,
-  subjectNameId?: string,
-  attributes?: Record<string, string>
+  success: boolean;
+  subjectNameId?: string;
+  period?: VerifyPeriod;
+  attributes?: Record<string, string>;
 };
 
 export type SPMetadataOptions = {

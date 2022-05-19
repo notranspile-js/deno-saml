@@ -84,6 +84,7 @@ async function handleACS(req: SimpleRequest): Promise<SimpleResponse> {
   const verified = await saml.verifyResponse(resp, {
     addSigInfoWhitespaces: idpSsoUrl.includes("amazonaws"),
   });
+  console.log(JSON.stringify(verified, null, 4));
   if (!verified.success) {
     throw new Error("Response verification failure");
   }
