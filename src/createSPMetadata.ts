@@ -3,7 +3,7 @@ import { dateFormat } from "./common.ts";
 import { SPMetadataOptions, XmlObject } from "./types.ts";
 
 export default (options: SPMetadataOptions): XmlObject => {
-  const validUntil = dayjs().add(options.validMinutes, "minute");
+  const validUntil = dayjs().utc().add(options.validMinutes, "minute");
   return {
     EntityDescriptor: {
       _attributes: {

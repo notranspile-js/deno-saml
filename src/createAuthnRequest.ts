@@ -26,7 +26,7 @@ export default (options: AuthnRequestOptions): XmlObject => {
         AssertionConsumerServiceURL: options.acsUrl,
         Destination: options.destinationUrl,
         ID: `id-${crypto.randomUUID()}`,
-        IssueInstant: dayjs().format(dateFormat),
+        IssueInstant: dayjs().utc().format(dateFormat),
         ProtocolBinding: "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
         Version: "2.0",
       },

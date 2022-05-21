@@ -24,7 +24,9 @@ export * as path from "https://deno.land/std@0.110.0/path/mod.ts";
 
 // dayjs
 // @ts-ignore extension
-import dayjs from "https://deno.land/x/notranspile_dayjs@1.10.7-deno/index.js";
+import dayjs from "https://deno.land/x/notranspile_dayjs@1.10.7-deno-1/index.js";
+import dayjs_utc from "https://deno.land/x/notranspile_dayjs@1.10.7-deno-1/plugin/utc/index.js";
+dayjs.extend(dayjs_utc);
 export { dayjs };
 
 // js2xml

@@ -19,7 +19,7 @@ import { dateFormat } from "./common.ts";
 import { ResponseOptions, XmlObject } from "./types.ts";
 
 export default (options: ResponseOptions): XmlObject => {
-  const now = dayjs();
+  const now = dayjs().utc();
   const notAfter = now.add(options.notAfterMinutes, "minute");
 
   const attrs = [];

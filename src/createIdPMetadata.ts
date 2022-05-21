@@ -20,7 +20,7 @@ import { IdPMetadataOptions, XmlObject } from "./types.ts";
 import unheaderPem from "./unheaderPem.ts";
 
 export default (options: IdPMetadataOptions): XmlObject => {
-  const validUntil = dayjs().add(options.validMinutes, "minute");
+  const validUntil = dayjs().utc().add(options.validMinutes, "minute");
   const cert = unheaderPem(options.certificateX509Pem);
 
   return {
