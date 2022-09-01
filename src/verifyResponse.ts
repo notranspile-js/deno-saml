@@ -261,6 +261,7 @@ export default async (
   return {
     success: verified,
     subjectNameId: extractNameId(nm, response),
+    certificateX509Pem: certPem,
     period: extractPeriod(nm, response),
     attributes: extractAttributes(nm, response),
   };

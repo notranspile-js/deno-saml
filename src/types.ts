@@ -58,9 +58,10 @@ export type VerifyPeriod = {
 
 export type VerifyResult = {
   success: boolean;
-  subjectNameId?: string;
-  period?: VerifyPeriod;
-  attributes?: Record<string, string>;
+  subjectNameId: string;
+  certificateX509Pem: string;
+  period: VerifyPeriod;
+  attributes: Record<string, string>;
 };
 
 export type SPMetadataOptions = {

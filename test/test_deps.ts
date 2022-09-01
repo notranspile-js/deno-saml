@@ -20,3 +20,6 @@ export {
   assertStrictEquals,
   assertThrows,
 } from "https://deno.land/std@0.110.0/testing/asserts.ts";
+
+import dayjs from "https://deno.land/x/notranspile_dayjs@1.10.7-deno-1/index.js";
+export { dayjs };

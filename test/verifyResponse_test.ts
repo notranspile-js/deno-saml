@@ -17,8 +17,9 @@
 import { path } from "../src/deps.ts";
 import createResponse from "../src/createResponse.ts";
 import signResponse from "../src/signResponse.ts";
+import unheaderPem from "../src/unheaderPem.ts";
 import verifyResponse from "../src/verifyResponse.ts";
-import { assert, assertEquals } from "./test_deps.ts";
+import { assert, assertEquals, dayjs } from "./test_deps.ts";
 
 Deno.test("verifyResponse local", async () => {
   const scriptPath = path.fromFileUrl(import.meta.url);
@@ -47,6 +48,10 @@ Deno.test("verifyResponse local", async () => {
   });
   const verified = await verifyResponse(signed, {});
   assert(verified.success);
+  assertEquals(verified.subjectNameId, "id-foo");
+  assertEquals(verified.certificateX509Pem, unheaderPem(certPem));
+  assert(dayjs(verified.period.from).isValid());
+  assert(dayjs(verified.period.to).isValid());
   assertEquals(verified.attributes, {
     foo: "bar",
     baz: "boo",
@@ -261,6 +266,7 @@ Deno.test("verifyResponse AWS", async () => {
   });
   assert(verified.success);
   assertEquals(verified.subjectNameId, "Username");
+  assertEquals(verified.certificateX509Pem, "MIIDAzCCAeugAwIBAgIBATANBgkqhkiG9w0BAQsFADBFMRYwFAYDVQQDDA1hbWF6b25hd3MuY29tMQ0wCwYDVQQLDARJREFTMQ8wDQYDVQQKDAZBbWF6b24xCzAJBgNVBAYTAlVTMB4XDTIyMDMxMDE4MzIzNVoXDTI3MDMxMDE4MzIzNVowRTEWMBQGA1UEAwwNYW1hem9uYXdzLmNvbTENMAsGA1UECwwESURBUzEPMA0GA1UECgwGQW1hem9uMQswCQYDVQQGEwJVUzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMoV2EE8ooZLjeqVhnCJT5QSLeENOLlk/T2rwZpaejFNztkQd0X0X+7UQ33+wlv5AybHXL41ggwAw7b/7j/hHN2TxIjz6RrDgIm60PbvVfT2TuYTCY84fHpnOFKGo/aHCVquwEqPftvyqpJKRTXdLk/YyC6ZhtSYJVKEoGDSs3hm74pf+RkWIEx8/FACu6pk2a9hFbFJOs1f4Zw1RwiKDNFyfHoKrUuebHE+spd+ArhkAU4JDFdK5p5JzqW8SQ8zL7QMiu+tDiwBTBhugPZCgHzIi8m/EaUR3LWzdo2WlN2MyRJ0qusOWN5MfuOQrkkKzxM0zkItnWa6tVGkhGFDah8CAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAsqNBZ4+5U6vE45NTwciTdVDqy5MgW0+YbM19VSt4AYT24A1KQ9vD9I0JmH6tzTr4aKQq69yuEvSOwb4Xj5tRNyRN8LH2arb3OxeUKjcRonLHi5T4ypWw+BRrXy6ZN/akNwzugKna3w4ISX8DYiRUZesJpKI+9Z+kCbQy32lIARw8CamPtf12MpNkQWOjklZwXbjvLgDdZAMamW6kvftPphthwBAWjhYqxLKASc+dWaIOGCsATSGtCKTJ3Pv80o9WZ3hbn19M1K8RB9RXMAQsooXw2bzJRuuQ/A39kFV6J02WvsC559sj3IkV1fD5/I06agN7rgGSlga21kAnvk1Ypw==");
   assertEquals(verified.period!.from, "2022-04-03T13:35:23+01:00");
   assertEquals(verified.period!.to, "2022-04-03T14:40:23+01:00");
 });
