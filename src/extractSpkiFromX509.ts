@@ -61,7 +61,12 @@ function extractPubKey(der: Uint8Array) {
   // SEQUENCE
   const subjectNameStart = validityPeriodStart + validityPeriodLen;
   checkOctet(der, subjectNameStart, 0x30);
-  const subjectNameLen = 2 + der[subjectNameStart + 1];
+  let subjectNameLen = -1;
+  if (0x81 == der[subjectNameStart + 1]) {
+    subjectNameLen = 3 + der[subjectNameStart + 2];
+  } else {
+    subjectNameLen = 2 + der[subjectNameStart + 1];
+  }
   // SEQUENCE
   const publicKeyStart = subjectNameStart + subjectNameLen;
   checkOctet(der, publicKeyStart, 0x30);

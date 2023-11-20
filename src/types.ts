@@ -49,6 +49,7 @@ export type SignOptions = {
 
 export type VerifyOptions = {
   addSigInfoWhitespaces?: boolean;
+  stripAttributesNamespaceXs?: boolean;
 };
 
 export type VerifyPeriod = {

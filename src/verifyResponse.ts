@@ -20,6 +20,7 @@ import {
   VerifyOptions,
   VerifyPeriod,
   VerifyResult,
+  XmlNode,
   XmlObject,
 } from "./types.ts";
 import extractSpkiFromX509 from "./extractSpkiFromX509.ts";
@@ -75,12 +76,51 @@ function namespacesMap(response: XmlObject): Record<string, string> {
   let dsigPrefix = "";
   const nsPrefLen = "xmlns".length + 1;
   for (const [name, val] of Object.entries(respAttrs)) {
-    if (nsSaml == val) {
-      samlPrefix = `${name.substring(nsPrefLen)}:`;
-    } else if (nsAssert == val) {
-      assertPrefix = `${name.substring(nsPrefLen)}:`;
-    } else if (nsDsig == val) {
-      dsigPrefix = `${name.substring(nsPrefLen)}:`;
+    if (name.includes(":")) {
+      if (nsSaml == val) {
+        samlPrefix = `${name.substring(nsPrefLen)}:`;
+      } else if (nsAssert == val) {
+        assertPrefix = `${name.substring(nsPrefLen)}:`;
+      } else if (nsDsig == val) {
+        dsigPrefix = `${name.substring(nsPrefLen)}:`;
+      }
+    }
+  }
+  if (0 == assertPrefix.length) {
+    for (const [name, val] of Object.entries(respNode)) {
+      if (name.endsWith("Assertion")) {
+        const assertAttrs = (val as XmlObject)._attributes as Record<string, string>;
+        for (const [nameAssert, valAssert] of Object.entries(assertAttrs)) {
+          if (nameAssert.includes(":")) {
+            if (nsAssert == valAssert) {
+              assertPrefix = `${nameAssert.substring(nsPrefLen)}:`;
+              break;
+            }
+          }
+        }
+        break;
+      }
+    }
+  }
+  if (0 == dsigPrefix.length) {
+    for (const [name, val] of Object.entries(respNode)) {
+      if (name.endsWith("Assertion")) {
+        for (const [nameAssert, valAssert] of Object.entries(val as XmlObject)) {
+          if (nameAssert.endsWith("Signature")) {
+            const sigAttrs = (valAssert as XmlObject)._attributes as Record<string, string>;
+            for (const [nameSig, valSig] of Object.entries(sigAttrs)) {
+              if (nameSig.includes(":")) {
+                if (nsDsig == valSig) {
+                  dsigPrefix = `${nameSig.substring(nsPrefLen)}:`;
+                  break;
+                }
+              }
+            }
+            break;
+          }
+        }
+        break;
+      }
     }
   }
   return {
@@ -113,6 +153,20 @@ function addWhitespaces(
   res = res.replace(`</${ns}Reference>`, `\n</${ns}Reference>`);
   res = res.replace(`</${ns}SignedInfo>`, `\n</${ns}SignedInfo>`);
   return res;
+}
+
+function stripAttributesNamespaceXs(
+  nm: Record<string, string>,
+  assertionStatement: XmlObject,
+) {
+  const attrs = assertionStatement[`${nm.assertns}Attribute`] as XmlNode[];
+  if (attrs) {
+    for (const at of attrs) {
+      const val = (at as XmlObject)[`${nm.assertns}AttributeValue`] as XmlObject;
+      const valAttrs = val._attributes as Record<string, string>;
+      delete valAttrs["xmlns:xs"]
+    }
+  }
 }
 
 function extractNameId(
@@ -206,6 +260,10 @@ export default async (
       ] = "urn:oasis:names:tc:SAML:2.0:assertion";
   }
   reorderAttributes(assertion[`${nm.assertns}Assertion`] as XmlObject);
+  if (options.stripAttributesNamespaceXs) {
+     stripAttributesNamespaceXs(nm, (assertion[`${nm.assertns}Assertion`] as XmlObject)
+        [`${nm.assertns}AttributeStatement`] as XmlObject);
+  }
   const assertionCanonical = js2xml(assertion, {
     compact: true,
     fullTagEmptyElement: true,
