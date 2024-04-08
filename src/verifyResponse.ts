@@ -220,6 +220,22 @@ function extractPeriod(
   };
 }
 
+function getX509Certificate(
+  nm: Record<string, string>,
+  kins: string,
+  signatureNode: XmlObject
+): string {
+  let ns = nm.dsig;
+  let keyInfo = signatureNode[`${ns}KeyInfo`] as XmlObject;
+  if (!keyInfo) {
+    ns = kins ? `${kins}:` : "";
+  }
+  keyInfo = signatureNode[`${ns}KeyInfo`] as XmlObject;
+  const x509Data = keyInfo[`${ns}X509Data`] as XmlObject;
+  const x509Certificate = x509Data[`${ns}X509Certificate`] as XmlObject;
+  return x509Certificate._text as string;
+}
+
 export default async (
   response: XmlObject,
   options: VerifyOptions,
@@ -230,9 +246,7 @@ export default async (
   ] as XmlObject)[`${nm.dsig}Signature`] as XmlObject;
   const signAlg = chooseSignAlg(nm, signatureNode);
   const hashAlg = chooseHashAlg(nm, signatureNode);
-  const certPem = (((signatureNode[`${nm.dsig}KeyInfo`] as XmlObject)[
-    `${nm.dsig}X509Data`
-  ] as XmlObject)[`${nm.dsig}X509Certificate`] as XmlObject)._text as string;
+  const certPem = getX509Certificate(nm, options.keyInfoNamespace ?? "", signatureNode);
   const pubKeyPem = extractSpkiFromX509(certPem);
   const pubKeyDer = base64.decode(pubKeyPem);
   const pubKey = await crypto.subtle.importKey(
