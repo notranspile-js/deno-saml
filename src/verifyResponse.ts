@@ -215,8 +215,8 @@ function extractPeriod(
     ._attributes as Record<string, string>;
 
   return {
-    from: dayjs(attrs.NotBefore, dateFormat).format(),
-    to: dayjs(attrs.NotOnOrAfter, dateFormat).format()
+    from: dayjs(attrs.NotBefore, dateFormat).utc().format(),
+    to: dayjs(attrs.NotOnOrAfter, dateFormat).utc().format()
   };
 }
 
