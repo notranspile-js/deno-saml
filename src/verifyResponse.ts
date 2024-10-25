@@ -169,6 +169,26 @@ function stripAttributesNamespaceXs(
   }
 }
 
+function stripChildrenTagsNamespaces(
+  nm: Record<string, string>,
+  assertion: XmlObject
+) {
+  const aobj = assertion[`${nm.assertns}Assertion`] as XmlObject;
+  for (const key of Object.keys(aobj)) {
+    if ("_attributes" === key) {
+      continue;
+    }
+    const child = aobj[key] as XmlObject;
+    const attrs = child._attributes as Record<string, string>;
+    const attrKeys = Object.keys(attrs);
+    for (const ak of attrKeys) {
+      if ("xmlns" === ak || ak.startsWith("xmlns:")) {
+        delete attrs[ak];
+      }
+    }
+  }
+}
+
 function extractNameId(
   nm: Record<string, string>,
   response: XmlObject,
@@ -184,11 +204,13 @@ function extractAttributes(
   nm: Record<string, string>,
   response: XmlObject,
 ): Record<string, string> {
-  let attrs = (((response[`${nm.saml}Response`] as XmlObject)[
+  const as = ((response[`${nm.saml}Response`] as XmlObject)[
     `${nm.assertns}Assertion`
-  ] as XmlObject)[`${nm.assertns}AttributeStatement`] as XmlObject)[
-    `${nm.assertns}Attribute`
-  ] as XmlObject[];
+  ] as XmlObject)[`${nm.assertns}AttributeStatement`] as XmlObject;
+  if (!as) {
+    return {};
+  }
+  let attrs = as[`${nm.assertns}Attribute`] as XmlObject[];
   if (!attrs) {
     return {};
   }
@@ -265,18 +287,21 @@ export default async (
   assertion[`${nm.assertns}Assertion`] =
     resp[`${nm.saml}Response`][`${nm.assertns}Assertion`],
     delete (assertion[`${nm.assertns}Assertion`] as XmlObject)[
-      `${nm.dsig}Signature`
+    `${nm.dsig}Signature`
     ];
   if ("" != nm.assertns) {
     (((assertion[`${nm.assertns}Assertion`] as XmlObject)
       ._attributes) as XmlObject)[
-        `xmlns:${nm.assertns.substring(0, nm.assertns.length - 1)}`
-      ] = "urn:oasis:names:tc:SAML:2.0:assertion";
+      `xmlns:${nm.assertns.substring(0, nm.assertns.length - 1)}`
+    ] = "urn:oasis:names:tc:SAML:2.0:assertion";
   }
   reorderAttributes(assertion[`${nm.assertns}Assertion`] as XmlObject);
   if (options.stripAttributesNamespaceXs) {
-     stripAttributesNamespaceXs(nm, (assertion[`${nm.assertns}Assertion`] as XmlObject)
-        [`${nm.assertns}AttributeStatement`] as XmlObject);
+    stripAttributesNamespaceXs(nm, (assertion[`${nm.assertns}Assertion`] as XmlObject)
+    [`${nm.assertns}AttributeStatement`] as XmlObject);
+  }
+  if (options.stripChildrenTagsNamespaces) {
+    stripChildrenTagsNamespaces(nm, assertion);
   }
   const assertionCanonical = js2xml(assertion, {
     compact: true,
