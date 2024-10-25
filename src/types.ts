@@ -51,7 +51,6 @@ export type VerifyOptions = {
   addSigInfoWhitespaces?: boolean;
   stripAttributesNamespaceXs?: boolean;
   keyInfoNamespace?: string;
-  stripChildrenTagsNamespaces?: boolean;
 };
 
 export type VerifyPeriod = {

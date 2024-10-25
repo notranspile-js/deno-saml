@@ -180,6 +180,9 @@ function stripChildrenTagsNamespaces(
     }
     const child = aobj[key] as XmlObject;
     const attrs = child._attributes as Record<string, string>;
+    if (!attrs) {
+      continue;
+    }
     const attrKeys = Object.keys(attrs);
     for (const ak of attrKeys) {
       if ("xmlns" === ak || ak.startsWith("xmlns:")) {
@@ -300,9 +303,7 @@ export default async (
     stripAttributesNamespaceXs(nm, (assertion[`${nm.assertns}Assertion`] as XmlObject)
     [`${nm.assertns}AttributeStatement`] as XmlObject);
   }
-  if (options.stripChildrenTagsNamespaces) {
-    stripChildrenTagsNamespaces(nm, assertion);
-  }
+  stripChildrenTagsNamespaces(nm, assertion);
   const assertionCanonical = js2xml(assertion, {
     compact: true,
     fullTagEmptyElement: true,
