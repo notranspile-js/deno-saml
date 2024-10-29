@@ -155,25 +155,40 @@ function addWhitespaces(
   return res;
 }
 
-function stripAttributesNamespaceXs(
-  nm: Record<string, string>,
-  assertionStatement: XmlObject,
-) {
-  const attrs = assertionStatement[`${nm.assertns}Attribute`] as XmlNode[];
-  if (attrs) {
-    for (const at of attrs) {
-      const val = (at as XmlObject)[`${nm.assertns}AttributeValue`] as XmlObject;
-      const valAttrs = val._attributes as Record<string, string>;
-      delete valAttrs["xmlns:xs"]
+function stripNamespaceXs(obj: XmlObject) {
+  const attrs = obj._attributes as Record<string, string>;
+  if (!attrs) {
+    return;
+  }
+  const attrKeys = Object.keys(attrs);
+  for (const ak of attrKeys) {
+    if ("xmlns:xs" === ak) {
+      delete attrs[ak];
     }
   }
 }
 
-function stripChildrenTagsNamespaces(
+function stripAttributesNamespaceXs(
   nm: Record<string, string>,
-  assertion: XmlObject
+  assertionStatement: XmlObject,
 ) {
-  const aobj = assertion[`${nm.assertns}Assertion`] as XmlObject;
+  if (!assertionStatement) {
+    return;
+  }
+  let attrs = assertionStatement[`${nm.assertns}Attribute`] as XmlNode[];
+  if (!attrs) {
+    return;
+  }
+  if (!(attrs instanceof Array)) {
+    attrs = [attrs];
+  }
+  for (const at of attrs) {
+    const val = (at as XmlObject)[`${nm.assertns}AttributeValue`] as XmlObject;
+    stripNamespaceXs(val);
+  }
+}
+
+function stripChildrenTagsNamespaces(aobj: XmlObject) {
   for (const key of Object.keys(aobj)) {
     if ("_attributes" === key) {
       continue;
@@ -258,7 +273,8 @@ function getX509Certificate(
   keyInfo = signatureNode[`${ns}KeyInfo`] as XmlObject;
   const x509Data = keyInfo[`${ns}X509Data`] as XmlObject;
   const x509Certificate = x509Data[`${ns}X509Certificate`] as XmlObject;
-  return x509Certificate._text as string;
+  const multiline = x509Certificate._text as string;
+  return multiline.replace(/\s+/g, "").trim()
 }
 
 export default async (
@@ -292,18 +308,16 @@ export default async (
     delete (assertion[`${nm.assertns}Assertion`] as XmlObject)[
     `${nm.dsig}Signature`
     ];
+  const assertionObj = assertion[`${nm.assertns}Assertion`] as XmlObject;
   if ("" != nm.assertns) {
-    (((assertion[`${nm.assertns}Assertion`] as XmlObject)
-      ._attributes) as XmlObject)[
+    ((assertionObj._attributes) as XmlObject)[
       `xmlns:${nm.assertns.substring(0, nm.assertns.length - 1)}`
     ] = "urn:oasis:names:tc:SAML:2.0:assertion";
   }
-  reorderAttributes(assertion[`${nm.assertns}Assertion`] as XmlObject);
-  if (options.stripAttributesNamespaceXs) {
-    stripAttributesNamespaceXs(nm, (assertion[`${nm.assertns}Assertion`] as XmlObject)
-    [`${nm.assertns}AttributeStatement`] as XmlObject);
-  }
-  stripChildrenTagsNamespaces(nm, assertion);
+  stripNamespaceXs(assertionObj);
+  reorderAttributes(assertionObj);
+  stripAttributesNamespaceXs(nm, assertionObj[`${nm.assertns}AttributeStatement`] as XmlObject);
+  stripChildrenTagsNamespaces(assertionObj);
   const assertionCanonical = js2xml(assertion, {
     compact: true,
     fullTagEmptyElement: true,
