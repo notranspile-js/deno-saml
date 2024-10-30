@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { base64, dayjs, js2xml } from "./deps.ts";
+import { base64, dayjs, js2xml, DOMParser, CanonicalisationFactory } from "./deps.ts";
 import { dateFormat, encoder } from "./common.ts";
 import {
   VerifyOptions,
@@ -24,7 +24,6 @@ import {
   XmlObject,
 } from "./types.ts";
 import extractSpkiFromX509 from "./extractSpkiFromX509.ts";
-import reorderAttributes from "./reorderAttributes.ts";
 
 function chooseSignAlg(
   nm: Record<string, string>,
@@ -155,58 +154,6 @@ function addWhitespaces(
   return res;
 }
 
-function stripNamespaceXs(obj: XmlObject) {
-  const attrs = obj._attributes as Record<string, string>;
-  if (!attrs) {
-    return;
-  }
-  const attrKeys = Object.keys(attrs);
-  for (const ak of attrKeys) {
-    if ("xmlns:xs" === ak) {
-      delete attrs[ak];
-    }
-  }
-}
-
-function stripAttributesNamespaceXs(
-  nm: Record<string, string>,
-  assertionStatement: XmlObject,
-) {
-  if (!assertionStatement) {
-    return;
-  }
-  let attrs = assertionStatement[`${nm.assertns}Attribute`] as XmlNode[];
-  if (!attrs) {
-    return;
-  }
-  if (!(attrs instanceof Array)) {
-    attrs = [attrs];
-  }
-  for (const at of attrs) {
-    const val = (at as XmlObject)[`${nm.assertns}AttributeValue`] as XmlObject;
-    stripNamespaceXs(val);
-  }
-}
-
-function stripChildrenTagsNamespaces(aobj: XmlObject) {
-  for (const key of Object.keys(aobj)) {
-    if ("_attributes" === key) {
-      continue;
-    }
-    const child = aobj[key] as XmlObject;
-    const attrs = child._attributes as Record<string, string>;
-    if (!attrs) {
-      continue;
-    }
-    const attrKeys = Object.keys(attrs);
-    for (const ak of attrKeys) {
-      if ("xmlns" === ak || ak.startsWith("xmlns:")) {
-        delete attrs[ak];
-      }
-    }
-  }
-}
-
 function extractNameId(
   nm: Record<string, string>,
   response: XmlObject,
@@ -277,6 +224,17 @@ function getX509Certificate(
   return multiline.replace(/\s+/g, "").trim()
 }
 
+function canonicalize(assertion: XmlObject): string {
+  const xml = js2xml(assertion, {
+    compact: true,
+    fullTagEmptyElement: true,
+  });
+  const dom = new DOMParser().parseFromString(xml, "text/xml");
+  const c14n = new CanonicalisationFactory();
+  const can = c14n.createCanonicaliser("http://www.w3.org/2001/10/xml-exc-c14n#");
+  return can.canonicalise(dom.documentElement);
+}
+
 export default async (
   response: XmlObject,
   options: VerifyOptions,
@@ -314,14 +272,7 @@ export default async (
       `xmlns:${nm.assertns.substring(0, nm.assertns.length - 1)}`
     ] = "urn:oasis:names:tc:SAML:2.0:assertion";
   }
-  stripNamespaceXs(assertionObj);
-  reorderAttributes(assertionObj);
-  stripAttributesNamespaceXs(nm, assertionObj[`${nm.assertns}AttributeStatement`] as XmlObject);
-  stripChildrenTagsNamespaces(assertionObj);
-  const assertionCanonical = js2xml(assertion, {
-    compact: true,
-    fullTagEmptyElement: true,
-  });
+  const assertionCanonical = canonicalize(assertion);
   const assertionCanonicalBytes = encoder.encode(assertionCanonical);
   const sha256Bytes = await crypto.subtle.digest(
     hashAlg,

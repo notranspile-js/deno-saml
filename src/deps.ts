@@ -36,6 +36,19 @@ export { js2xml } from "https://deno.land/x/js2xml@1.0.4/mod.ts";
 // @ts-ignore extension
 export * as mustache from "https://deno.land/x/mustache_ts@v0.4.1.1/mustache.ts";
 
+// xml-c14n
+// @ts-ignore extension
+export {
+  CanonicalisationFactory
+} from "https://raw.githubusercontent.com/notranspile-js/deno-xml-c14n/refs/tags/0.0.6-deno/index.js";
+
 // xml2js
 // @ts-ignore extension
 export { xml2js } from "https://deno.land/x/xml2js@1.0.0/mod.ts";
+
+// xmldom
+// @ts-ignore extension
+export {
+  DOMParser,
+} from "https://raw.githubusercontent.com/notranspile-js/deno-xmldom/refs/tags/0.9.5-deno/lib/index.js";
+
