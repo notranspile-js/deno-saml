@@ -20,10 +20,33 @@ import {
   VerifyOptions,
   VerifyPeriod,
   VerifyResult,
-  XmlNode,
   XmlObject,
 } from "./types.ts";
 import extractSpkiFromX509 from "./extractSpkiFromX509.ts";
+
+function extractInclusiveNamespaces(
+  nm: Record<string, string>,
+  signatureNode: XmlObject) { 
+    const si = signatureNode[`${nm.dsig}SignedInfo`] as XmlObject;
+    const ref = si[`${nm.dsig}Reference`] as XmlObject;
+    const transforms = ref[`${nm.dsig}Transforms`] as XmlObject;
+    const transformList = transforms[`${nm.dsig}Transform`] as XmlObject[];
+    for (const transform of transformList) {
+      const attrs = transform._attributes as Record<string, string>;
+      if ("http://www.w3.org/2001/10/xml-exc-c14n#" == attrs.Algorithm) {
+        const ins = transform["ec:InclusiveNamespaces"] as XmlObject;
+        if (!ins) {
+          return [];
+        }
+        const insAttrs = ins._attributes as Record<string, string>;
+        if (!insAttrs || !insAttrs.PrefixList) {
+          return [];
+        }
+        return insAttrs.PrefixList.split(" ");
+      }
+    }
+    return [];
+}
 
 function chooseSignAlg(
   nm: Record<string, string>,
@@ -224,14 +247,18 @@ function getX509Certificate(
   return multiline.replace(/\s+/g, "").trim()
 }
 
-function canonicalize(assertion: XmlObject): string {
-  const xml = js2xml(assertion, {
+function canonicalize(
+  xobj: XmlObject,
+  inclusiveNamespaces: string[]): string {
+  const xml = js2xml(xobj, {
     compact: true,
     fullTagEmptyElement: true,
   });
   const dom = new DOMParser().parseFromString(xml, "text/xml");
   const c14n = new CanonicalisationFactory();
-  const can = c14n.createCanonicaliser("http://www.w3.org/2001/10/xml-exc-c14n#");
+  const can = c14n.createCanonicaliser("http://www.w3.org/2001/10/xml-exc-c14n#", {
+    inclusiveNamespaces
+  });
   return can.canonicalise(dom.documentElement);
 }
 
@@ -258,6 +285,7 @@ export default async (
     true,
     ["verify"],
   );
+  const inclusiveNamespaces = extractInclusiveNamespaces(nm, signatureNode);
 
   const resp = JSON.parse(JSON.stringify(response));
   const assertion = {} as XmlObject;
@@ -272,7 +300,7 @@ export default async (
       `xmlns:${nm.assertns.substring(0, nm.assertns.length - 1)}`
     ] = "urn:oasis:names:tc:SAML:2.0:assertion";
   }
-  const assertionCanonical = canonicalize(assertion);
+  const assertionCanonical = canonicalize(assertion, inclusiveNamespaces);
   const assertionCanonicalBytes = encoder.encode(assertionCanonical);
   const sha256Bytes = await crypto.subtle.digest(
     hashAlg,
@@ -303,10 +331,7 @@ export default async (
     (si[`${nm.dsig}SignedInfo`] as XmlObject)._attributes = sattrs;
   }
 
-  let siXml = js2xml(si, {
-    compact: true,
-    fullTagEmptyElement: true,
-  });
+  let siXml = canonicalize(si, inclusiveNamespaces);
   if (true == options.addSigInfoWhitespaces) {
     siXml = addWhitespaces(nm, siXml);
   }

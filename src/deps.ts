@@ -40,7 +40,7 @@ export * as mustache from "https://deno.land/x/mustache_ts@v0.4.1.1/mustache.ts"
 // @ts-ignore extension
 export {
   CanonicalisationFactory
-} from "https://raw.githubusercontent.com/notranspile-js/deno-xml-c14n/refs/tags/0.0.6-deno/index.js";
+} from "https://raw.githubusercontent.com/notranspile-js/deno-xml-c14n/refs/tags/0.0.6-deno-1/index.js";
 
 // xml2js
 // @ts-ignore extension
