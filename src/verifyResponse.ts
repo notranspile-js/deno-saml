@@ -219,14 +219,31 @@ function extractPeriod(
   nm: Record<string, string>,
   response: XmlObject,
 ): VerifyPeriod {
-  const attrs = (((response[`${nm.saml}Response`] as XmlObject)[
-    `${nm.assertns}Assertion`
-  ] as XmlObject)[`${nm.assertns}Conditions`] as XmlObject)
-    ._attributes as Record<string, string>;
+  const resp = response[`${nm.saml}Response`] as XmlObject;
+  const assertion = resp[`${nm.assertns}Assertion`] as XmlObject;
+  const conditions = assertion[`${nm.assertns}Conditions`] as XmlObject;
+  const attrs = conditions._attributes as Record<string, string>;
+  const from = dayjs(attrs.NotBefore, dateFormat).utc();
+  const toCondition = dayjs(attrs.NotOnOrAfter, dateFormat).utc();
+  let to = toCondition;
+
+  const authnStatement = assertion[`${nm.assertns}AuthnStatement`] as XmlObject;
+  if (authnStatement) {
+    const authnAttrs = authnStatement._attributes as Record<string, string>;
+    if (authnAttrs) {
+      const toSessionStr = authnAttrs.SessionNotOnOrAfter;
+      if (toSessionStr) {
+        const toSession = dayjs(toSessionStr).utc();
+        if (toSession.isAfter(toCondition)) {
+          to = toSession;
+        }
+      }
+    }
+  }
 
   return {
-    from: dayjs(attrs.NotBefore, dateFormat).utc().format(),
-    to: dayjs(attrs.NotOnOrAfter, dateFormat).utc().format()
+    from: from.format(),
+    to: to.format()
   };
 }
 
